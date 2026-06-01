@@ -35,17 +35,15 @@ export default function App() {
     setLoading(true);
 
     if (isSignUp) {
-      //cSign up user in Supabase Auth
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) alert(error.message);
       else if (data.user) {
-        // Inject username into our profiles table
         const { error: profileError } = await supabase
           .from('profiles')
           .insert([{ id: data.user.id, username: username }]);
         
         if (profileError) alert("Profile creation failed: " + profileError.message);
-        else alert("Check your email for confirmation!");
+        else alert("Account registration completed!");
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -59,46 +57,45 @@ export default function App() {
   };
 
   const handleAddSpot = async (e) => {
-  e.preventDefault();
-  if (!user) return alert("You must be logged in to spot a car!");
-  
-  setLoading(true);
+    e.preventDefault();
+    if (!user) return alert("You must be logged in to spot a car!");
+    
+    setLoading(true);
 
-  // Quick validation
-  if (!carMake || !carModel || !carImageUrl) {
-    alert("Please fill out all required fields.");
+    if (!carMake || !carModel || !carImageUrl) {
+      alert("Please fill out all required fields.");
+      setLoading(false);
+      return;
+    }
+
+    const { error } = await supabase
+      .from('spots')
+      .insert([
+        {
+          user_id: user.id,
+          make: carMake,
+          model: carModel,
+          color: carColor,
+          image_url: carImageUrl,
+          lat: 34.0522,
+          lng: -118.2437, 
+        }
+      ]);
+
     setLoading(false);
-    return;
-  }
 
-  const { error } = await supabase
-    .from('spots')
-    .insert([
-      {
-        user_id: user.id,
-        make: carMake,
-        model: carModel,
-        color: carColor,
-        image_url: carImageUrl,
-        lat: 34.0522,
-        lng: -118.2437, 
-      }
-    ]);
-
-  setLoading(false);
-
-  if (error) {
-    alert("Error saving spot: " + error.message);
-  } else {
-    alert("Car Spotted Successfully!");
-    setCarMake('');
-    setCarModel('');
-    setCarColor('');
-    setCarImageUrl('');
-    setIsModalOpen(false);
-    setActiveTab('feed');
-  }
-};
+    if (error) {
+      alert("Error saving spot: " + error.message);
+    } else {
+      alert("Car Spotted Successfully!");
+      setCarMake('');
+      setCarModel('');
+      setCarColor('');
+      setCarImageUrl('');
+      setIsModalOpen(false);
+      setActiveTab('feed');
+    }
+  };
 
   // Mock data for testing feed UI
   const dummySpots = [
@@ -168,7 +165,6 @@ export default function App() {
           {activeTab === 'profile' && (
             <div>
               {user ? (
-                // Authenticated Profile View
                 <div className="py-6 flex flex-col items-center">
                   <div className="w-24 h-24 bg-zinc-800 rounded-full flex items-center justify-center border-2 border-red-500 mb-4">
                     <User className="w-10 h-10 text-zinc-400" />
@@ -184,7 +180,6 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                // Sign In / Sign Up Form View
                 <div className="p-4 max-w-sm mx-auto">
                   <div className="text-center mb-6">
                     <LogIn className="w-10 h-10 mx-auto text-red-500 mb-2" />
@@ -264,76 +259,75 @@ export default function App() {
           </button>
         </nav>
 
+        {/* ADD SPOT SLIDE-UP MODAL OVERLAY */}
+        {isModalOpen && (
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center">
+            <div className="absolute inset-0" onClick={() => setIsModalOpen(false)} />
+            
+            <div className="bg-zinc-900 w-full rounded-t-3xl border-t border-zinc-800 p-6 relative z-10">
+              <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
+              
+              {!user ? (
+                <div className="text-center py-6">
+                  <p className="font-bold text-lg text-zinc-200">Authentication Required</p>
+                  <p className="text-xs text-zinc-500 mt-1 mb-4">You need an active account profile to broadcast live automotive spots.</p>
+                  <button 
+                    onClick={() => { setIsModalOpen(false); setActiveTab('profile'); }}
+                    className="bg-zinc-800 border border-zinc-700 text-zinc-200 px-4 py-2 rounded-xl text-xs font-bold"
+                  >
+                    Go to Profile / Login
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleAddSpot} className="space-y-3.5">
+                  <h3 className="text-lg font-black tracking-tight text-white uppercase">Log A New Sighting</h3>
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <input 
+                      type="text" placeholder="Make (e.g. Ferrari)*" required
+                      value={carMake} onChange={e => setCarMake(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500 text-white"
+                    />
+                    <input 
+                      type="text" placeholder="Model (e.g. 488 Pista)*" required
+                      value={carModel} onChange={e => setCarModel(e.target.value)}
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500 text-white"
+                    />
+                  </div>
+
+                  <input 
+                    type="text" placeholder="Car Color (e.g. Matte Black)" 
+                    value={carColor} onChange={e => setCarColor(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500 text-white"
+                  />
+
+                  <input 
+                    type="url" placeholder="Image URL (Unsplash or any hosted image link)*" required
+                    value={carImageUrl} onChange={e => setCarImageUrl(e.target.value)}
+                    className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500 text-white font-mono text-xs"
+                  />
+
+                  <div className="flex gap-2 pt-2">
+                    <button 
+                      type="button" onClick={() => setIsModalOpen(false)}
+                      className="flex-1 bg-zinc-800 text-zinc-400 font-bold py-2.5 rounded-xl text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" disabled={loading}
+                      className="flex-1 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold py-2.5 rounded-xl text-sm shadow-md disabled:opacity-50"
+                    >
+                      {loading ? 'Publishing...' : 'Broadcast Spot'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
-      {/* ADD SPOT SLIDE-UP MODAL OVERLAY */}
-{isModalOpen && (
-  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end justify-center">
-    {/* Click outside container to close */}
-    <div className="absolute inset-0" onClick={() => setIsModalOpen(false)} />
-    
-    {/* Modal Container sheet */}
-    <div className="bg-zinc-900 w-full rounded-t-3xl border-t border-zinc-800 p-6 relative z-10 animate-in slide-in-from-bottom duration-200">
-      <div className="w-12 h-1 bg-zinc-700 rounded-full mx-auto mb-4" />
-      
-      {!user ? (
-        <div className="text-center py-6">
-          <p className="font-bold text-lg text-zinc-200">Authentication Required</p>
-          <p className="text-xs text-zinc-500 mt-1 mb-4">You need an active account profile to broadcast live automotive spots.</p>
-          <button 
-            onClick={() => { setIsModalOpen(false); setActiveTab('profile'); }}
-            className="bg-zinc-800 border border-zinc-700 text-zinc-200 px-4 py-2 rounded-xl text-xs font-bold"
-          >
-            Go to Profile / Login
-          </button>
-        </div>
-      ) : (
-        <form onSubmit={handleAddSpot} className="space-y-3.5">
-          <h3 className="text-lg font-black tracking-tight text-white uppercase">Log A New Sighting</h3>
-          
-          <div className="grid grid-cols-2 gap-2">
-            <input 
-              type="text" placeholder="Make (e.g. Ferrari)*" required
-              value={carMake} onChange={e => setCarMake(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500 text-white"
-            />
-            <input 
-              type="text" placeholder="Model (e.g. 488 Pista)*" required
-              value={carModel} onChange={e => setCarModel(e.target.value)}
-              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500 text-white"
-            />
-          </div>
-
-          <input 
-            type="text" placeholder="Car Color (e.g. Matte Black)" 
-            value={carColor} onChange={e => setCarColor(e.target.value)}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500 text-white"
-          />
-
-          <input 
-            type="url" placeholder="Image URL (Unsplash or any hosted image link)*" required
-            value={carImageUrl} onChange={e => setCarImageUrl(e.target.value)}
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-500 text-white font-mono text-xs"
-          />
-
-          <div className="flex gap-2 pt-2">
-            <button 
-              type="button" onClick={() => setIsModalOpen(false)}
-              className="flex-1 bg-zinc-800 text-zinc-400 font-bold py-2.5 rounded-xl text-sm transition-colors hover:bg-zinc-750"
-            >
-              Cancel
-            </button>
-            <button 
-              type="submit" disabled={loading}
-              className="flex-1 bg-gradient-to-r from-red-600 to-orange-500 text-white font-bold py-2.5 rounded-xl text-sm shadow-md disabled:opacity-50"
-            >
-              {loading ? 'Publishing...' : 'Broadcast Spot'}
-            </button>
-          </div>
-        </form>
-      )}
-    </div>
-  </div>
-)
     </div>
   );
 }
